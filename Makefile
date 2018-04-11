@@ -20,14 +20,15 @@ endif
 all: $(ARCHITECTURES)
 
 $(ARCHITECTURES): base
+	@echo "[x]    Building $(REPO):linux-$@-$(TAG)"
 	@docker run --rm --privileged $(MULTIARCH) --reset
 	@docker build \
-			--build-arg BUILD_BASE=$(BUILD_BASE) \
+			--build-arg BUILD_BASE=$(BUILD_BASE):$(TAG) \
 			--build-arg IMAGE_TARGET=$@/$(IMAGE_TARGET) \
 			--build-arg QEMU=$(strip $(call qemuarch,$@)) \
 			--build-arg QEMU_VERSION=$(QEMU_VERSION) \
 			--build-arg ARCH=$@ \
-			--build-arg GRAFANA_ARCH=$(strip $(call xgoarch,$@)) \
+			--build-arg XGO_ARCH=$(strip $(call xgoarch,$@)) \
 			--build-arg BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") \
 			--build-arg VCS_REF=$(shell git rev-parse --short HEAD) \
 			--build-arg VCS_URL=$(shell git config --get remote.origin.url) \
@@ -35,12 +36,14 @@ $(ARCHITECTURES): base
 			-t $(REPO):linux-$@-$(TAG) .
 
 base:
-	@ID=$$(docker images -q $(BUILD_BASE)) && \
+	@ID=$$(docker images -q $(BUILD_BASE):$(TAG)) && \
 	if test "$$ID" = ""; then \
-	    echo "Building Base Image"; \
+	    echo "[x]    Building Base Image $(BUILD_BASE):$(TAG)"; \
 			docker build \
 					--build-arg VERSION=$(VERSION) \
-					-f Dockerfile.compile -t $(BUILD_BASE) .; \
+					-f Dockerfile.compile -t $(BUILD_BASE):$(TAG) .; \
+	else \
+			echo "[x]    Image $(BUILD_BASE):$(TAG) already exists"; \
 	fi
 
 push:
@@ -64,22 +67,21 @@ manifest:
 test:
 	@docker network create -d bridge trial
 	@$(foreach arch,$(ARCHITECTURES), docker run \
-			--volume=/:/rootfs:ro \
-			--volume=/var/run:/var/run:rw \
-			--volume=/sys:/sys:ro \
-			--volume=/var/lib/docker/:/var/lib/docker:ro \
-			--volume=/dev/disk/:/dev/disk:ro \
-			--publish=8080:8080 \
+			--publish=3000:3000 \
 			--detach=true \
-			--name=cadvisor \
+			--name=grafana \
 			$(REPO):linux-$(arch)-$(TAG); \
 			sleep 10; \
 			docker run --network trial \
-				jwilder/dockerize dockerize -wait tcp://cadvisor:8080 -timeout 300s; \
-			curl -sSL --retry 10 --retry-delay 5 localhost:8080 | grep cAdvisor; \
-			docker rm -f cadvisor;)
+				jwilder/dockerize dockerize -wait tcp://grafana:3000 -timeout 300s; \
+			curl -sSL --retry 10 --retry-delay 5 localhost:3000 | grep "<title>Grafana</title>"; \
+			docker rm -f grafana;)
 	@docker network rm trial
 
+clean:
+	@echo "[x]    Removing Images"
+	@docker rmi -f $(BUILD_BASE):$(TAG)
+  $(foreach arch,$(ARCHITECTURES), docker rmi -f $(REPO):linux-$(arch)-$(TAG);)
 
 # Needed convertions for different architecture naming schemes
 # Convert qemu archs to naming scheme of https://github.com/multiarch/qemu-user-static/releases

@@ -1,5 +1,6 @@
 FROM karalabe/xgo-latest AS build
 ARG VERSION=master
+ARG NODE_VERSION=9.2.0
 
 WORKDIR ${GOPATH}/src/github.com/grafana
 RUN git clone --branch ${VERSION} https://github.com/grafana/grafana.git
@@ -10,6 +11,23 @@ RUN xgo --targets=linux/386,linux/amd64,linux/arm-5,linux/arm-6,linux/arm-7,linu
 WORKDIR ${GOPATH}/src/github.com/grafana/grafana/pkg/cmd/grafana-cli
 RUN xgo --targets=linux/386,linux/amd64,linux/arm-5,linux/arm-6,linux/arm-7,linux/arm64 .
 
+RUN wget -O /tmp/node.tar.xz https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
+    && cd /usr/local \
+    && tar --strip-components=1 -xf /tmp/node.tar.xz \
+    && rm /tmp/node.tar.xz \
+    && cd /go/src/github.com/grafana/grafana \
+    && npm install -g yarn \
+    && yarn install --pure-lockfile \
+    && npm install -g grunt-cli \
+    && grunt
+
+
 FROM alpine
 
 COPY --from=build /build /build
+COPY --from=build /go/src/github.com/grafana/grafana/conf/defaults.ini    /usr/share/grafana/conf/defaults.ini
+COPY --from=build /go/src/github.com/grafana/grafana/conf/sample.ini      /etc/grafana/grafana.ini
+COPY --from=build /go/src/github.com/grafana/grafana/conf/ldap.toml       /etc/grafana/ldap.toml
+COPY --from=build /go/src/github.com/grafana/grafana/public               /usr/share/grafana/public
+COPY --from=build /go/src/github.com/grafana/grafana/scripts              /usr/share/grafana/scripts
+COPY --from=build /go/src/github.com/grafana/grafana/vendor               /usr/share/grafana/vendor

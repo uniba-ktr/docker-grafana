@@ -1,0 +1,159 @@
+version: 2
+defaults: &defaults
+  working_directory: ~/docker-grafana
+  machine: true
+
+save_docker_cache: &save_docker_cache
+  save_cache:
+    key: compiled-{{ .Revision }}
+    paths: docker-cache
+
+restore_docker_cache: &restore_docker_cache
+  restore_cache:
+    key: compiled-{{ .Revision }}
+
+load_image_from_cache: &load_image_from_cache
+  run:
+    name: Load docker image from cache
+    command: docker load < docker-cache/base.tar
+
+jobs:
+  compile_go:
+    <<: *defaults
+    steps:
+      - checkout
+      - run:
+          name: Do the compile steps
+          command: |
+            make base
+            mkdir -p docker-cache
+            docker save -o docker-cache/base.tar base
+      - *save_docker_cache
+  build_amd64:
+    <<: *defaults
+    steps:
+      - checkout
+      - *restore_docker_cache
+      - *load_image_from_cache
+      - run:
+          name: Build image for amd64
+          command: make ARCHITECTURES=amd64
+      - run:
+          name: Test image for amd64
+          command: make ARCHITECTURES=amd64 test
+      - deploy:
+          name: Push image for amd64 to dockerhub
+          command: make ARCHITECTURES=amd64 push
+  build_i386:
+    <<: *defaults
+    steps:
+      - checkout
+      - *restore_docker_cache
+      - *load_image_from_cache
+      - run:
+          name: Build image for i386
+          command: make ARCHITECTURES=i386
+      - run:
+          name: Test image for i386
+          command: make ARCHITECTURES=i386 test
+      - deploy:
+          name: Push image for i386 to dockerhub
+          command: make ARCHITECTURES=i386 push
+  build_arm32v5:
+    <<: *defaults
+    steps:
+      - checkout
+      - *restore_docker_cache
+      - *load_image_from_cache
+      - run:
+          name: Build image for arm32v5
+          command: make ARCHITECTURES=arm32v5
+      - run:
+          name: Test image for arm32v5
+          command: make ARCHITECTURES=arm32v5 test
+      - deploy:
+          name: Push image for arm32v5 to dockerhub
+          command: make ARCHITECTURES=arm32v5 push
+  build_arm32v7:
+    <<: *defaults
+    steps:
+      - checkout
+      - *restore_docker_cache
+      - *load_image_from_cache
+      - run:
+          name: Build image for arm32v7
+          command: make ARCHITECTURES=arm32v7
+      - run:
+          name: Test image for arm32v7
+          command: make ARCHITECTURES=arm32v7 test
+      - deploy:
+          name: Push image for arm32v7 to dockerhub
+          command: make ARCHITECTURES=arm32v7 push
+  build_arm64v8:
+      <<: *defaults
+      steps:
+        - checkout
+        - *restore_docker_cache
+        - *load_image_from_cache
+        - run:
+            name: Build image for arm64v8
+            command: make ARCHITECTURES=arm64v8
+        - run:
+            name: Test image for arm64v8
+            command: make ARCHITECTURES=arm64v8 test
+        - deploy:
+            name: Push image for arm64v8 to dockerhub
+            command: make ARCHITECTURES=arm64v8 push
+  manifest:
+    <<: *defaults
+    steps:
+      - checkout
+      - deploy:
+          name: Generate multiarch manifest and push to dockerhub
+          command: make manifest
+  badge:
+    <<: *defaults
+    steps:
+      - run:
+          name: Call microbadger's webhook
+          command: curl -X POST https://hooks.microbadger.com/images/unibaktr/cadvisor/Fip_9kcTN5C9Fp0aDrXhhOlpX0Y=
+
+
+tag_filter: &tag_filter
+  filters:
+    tags:
+      only: /.*/
+
+requires_compile_and_tag: &requires_compile_and_tag
+  requires:
+    - compile_go
+  <<: *tag_filter
+
+workflows:
+  version: 2
+  compile-build-and-deploy:
+    jobs:
+      - compile_go:
+          <<: *tag_filter
+      - build_amd64:
+          <<: *requires_compile_and_tag
+      - build_i386:
+          <<: *requires_compile_and_tag
+      - build_arm32v5:
+          <<: *requires_compile_and_tag
+      - build_arm32v7:
+          <<: *requires_compile_and_tag
+      - build_arm64v8:
+          <<: *requires_compile_and_tag
+      - manifest:
+          requires:
+            - build_amd64
+            - build_i386
+            - build_arm32v5
+            - build_arm32v7
+            - build_arm64v8
+          <<: *tag_filter
+#      - badge:
+#          requires:
+#            - manifest
+#          <<: *tag_filter

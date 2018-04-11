@@ -14,12 +14,11 @@ ARG QEMU=x86_64
 COPY --from=qemu /qemu-${QEMU}-static /usr/bin/qemu-${QEMU}-static
 ARG ARCH=amd64
 ARG XGO_ARCH=amd64
-ARG GRAFANA_VERSION="latest"
-ARG GRAFANA_URL="https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana-$GRAFANA_VERSION.linux-x64.tar.gz"
 ARG GF_UID="472"
 ARG GF_GID="472"
+ARG VERSION=master
 
-ENV PATH=/usr/share/grafana/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     GF_PATHS_CONFIG="/etc/grafana/grafana.ini" \
     GF_PATHS_DATA="/var/lib/grafana" \
     GF_PATHS_HOME="/usr/share/grafana" \
@@ -27,9 +26,17 @@ ENV PATH=/usr/share/grafana/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bi
     GF_PATHS_PLUGINS="/var/lib/grafana/plugins" \
     GF_PATHS_PROVISIONING="/etc/grafana/provisioning"
 
-COPY --from=qemu /build/grafana-linux-${CADVISOR_ARCH} /usr/bin/grafana
+COPY --from=qemu /build/grafana-server-linux-${XGO_ARCH} /usr/sbin/grafana-server
+COPY --from=qemu /usr/share/grafana/conf/defaults.ini    /usr/share/grafana/conf/defaults.ini
+COPY --from=qemu /etc/grafana/ldap.toml                  /etc/grafana/ldap.toml
+COPY --from=qemu /etc/grafana/grafana.ini                /etc/grafana/grafana.ini
+COPY --from=qemu /usr/share/grafana/public               /usr/share/grafana/public
+COPY --from=qemu /usr/share/grafana/scripts              /usr/share/grafana/scripts
+COPY --from=qemu /usr/share/grafana/vendor               /usr/share/grafana/vendor
 
-RUN apt-get update && apt-get install -qq -y tar libfontconfig curl ca-certificates && \
+COPY ./run.sh /run.sh
+
+RUN apt-get update && apt-get install -qq -y libfontconfig curl ca-certificates file && \
     mkdir -p "$GF_PATHS_HOME/.aws" && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
@@ -40,14 +47,11 @@ RUN apt-get update && apt-get install -qq -y tar libfontconfig curl ca-certifica
              "$GF_PATHS_LOGS" \
              "$GF_PATHS_PLUGINS" \
              "$GF_PATHS_DATA" && \
-    cp "$GF_PATHS_HOME/conf/sample.ini" "$GF_PATHS_CONFIG" && \
-    cp "$GF_PATHS_HOME/conf/ldap.toml" /etc/grafana/ldap.toml && \
-    chown -R grafana:grafana "$GF_PATHS_DATA" "$GF_PATHS_HOME/.aws" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" && \
-    chmod 777 "$GF_PATHS_DATA" "$GF_PATHS_HOME/.aws" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS"
+    chown -R grafana:grafana "$GF_PATHS_DATA" "$GF_PATHS_HOME/.aws" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" /run.sh && \
+    chmod 777 "$GF_PATHS_DATA" "$GF_PATHS_HOME/.aws" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" && \
+    chmod +x /run.sh
 
 EXPOSE 3000
-
-COPY ./run.sh /run.sh
 
 USER grafana
 WORKDIR /
@@ -55,7 +59,7 @@ ENTRYPOINT [ "/run.sh" ]
 
 LABEL de.uniba.ktr.grafana.version=$VERSION \
       de.uniba.ktr.grafana.name="grafana" \
-      de.uniba.ktr.grafana.docker.cmd="docker run -d --name=grafana -p 3000:3000 unibaktr/grafana" \
+      de.uniba.ktr.grafana.docker.cmd="docker run -d --name=grafana  -e \"GF_SECURITY_ADMIN_PASSWORD=secret\" -p 3000:3000 unibaktr/grafana" \
       de.uniba.ktr.grafana.vendor="Marcel Grossmann" \
       de.uniba.ktr.grafana.architecture=$ARCH \
       de.uniba.ktr.grafana.vcs-ref=$VCS_REF \
