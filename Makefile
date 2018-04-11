@@ -67,6 +67,7 @@ manifest:
 test:
 	@docker network create -d bridge trial
 	@$(foreach arch,$(ARCHITECTURES), docker run \
+			--network trial \
 			--publish=3000:3000 \
 			--detach=true \
 			--name=grafana \
