@@ -36,7 +36,8 @@ COPY --from=qemu /usr/share/grafana/vendor               /usr/share/grafana/vend
 
 COPY ./run.sh /run.sh
 
-RUN apt-get update && apt-get install -qq -y libfontconfig curl ca-certificates file && \
+# TODO: Build with ca-certificates takes too long
+RUN apt-get -q update && apt-get install -y --no-install-recommends libfontconfig curl file && \
     mkdir -p "$GF_PATHS_HOME/.aws" && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
