@@ -1,6 +1,6 @@
 ARG GRAFANA_VERSION="latest"
 
-FROM grafana/grafana:${GRAFANA_VERSION}
+FROM unibaktr/grafana:${GRAFANA_VERSION}
 
 USER grafana
 

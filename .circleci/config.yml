@@ -116,7 +116,7 @@ jobs:
     steps:
       - run:
           name: Call microbadger's webhook
-          command: curl -X POST https://hooks.microbadger.com/images/unibaktr/cadvisor/Fip_9kcTN5C9Fp0aDrXhhOlpX0Y=
+          command: curl -X POST https://hooks.microbadger.com/images/unibaktr/grafana/vs4fsgGmfKe20vmUL0D5_J5PASE=
 
 
 tag_filter: &tag_filter
@@ -153,7 +153,7 @@ workflows:
             - build_arm32v7
             - build_arm64v8
           <<: *tag_filter
-#      - badge:
-#          requires:
-#            - manifest
-#          <<: *tag_filter
+      - badge:
+          requires:
+            - manifest
+          <<: *tag_filter
