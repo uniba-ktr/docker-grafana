@@ -3,13 +3,13 @@ ARG VERSION=master
 ARG NODE_VERSION=9.2.0
 
 WORKDIR ${GOPATH}/src/github.com/grafana
-RUN git clone --branch ${VERSION} https://github.com/grafana/grafana.git
+RUN git clone --branch ${VERSION} --depth=1 --single-branch https://github.com/grafana/grafana.git
 WORKDIR ${GOPATH}/src/github.com/grafana/grafana
 RUN go run build.go setup
 WORKDIR ${GOPATH}/src/github.com/grafana/grafana/pkg/cmd/grafana-server
-RUN xgo --targets=linux/386,linux/amd64,linux/arm-5,linux/arm-6,linux/arm-7,linux/arm64 .
+RUN xgo -ldflags "-X main.version=`(echo $VERSION | sed 's/v//g')` -X main.commit=`(git rev-parse --short HEAD)`" --targets=linux/386,linux/amd64,linux/arm-5,linux/arm-6,linux/arm-7,linux/arm64 .
 WORKDIR ${GOPATH}/src/github.com/grafana/grafana/pkg/cmd/grafana-cli
-RUN xgo --targets=linux/386,linux/amd64,linux/arm-5,linux/arm-6,linux/arm-7,linux/arm64 .
+RUN xgo -ldflags "-X main.version=`(echo $VERSION | sed 's/v//g')`" --targets=linux/386,linux/amd64,linux/arm-5,linux/arm-6,linux/arm-7,linux/arm64 .
 
 RUN wget -O /tmp/node.tar.xz https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
     && cd /usr/local \

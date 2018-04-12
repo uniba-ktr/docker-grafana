@@ -27,6 +27,7 @@ ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     GF_PATHS_PROVISIONING="/etc/grafana/provisioning"
 
 COPY --from=qemu /build/grafana-server-linux-${XGO_ARCH} /usr/sbin/grafana-server
+COPY --from=qemu /build/grafana-cli-linux-${XGO_ARCH}    /usr/sbin/grafana-cli
 COPY --from=qemu /usr/share/grafana/conf/defaults.ini    /usr/share/grafana/conf/defaults.ini
 COPY --from=qemu /etc/grafana/ldap.toml                  /etc/grafana/ldap.toml
 COPY --from=qemu /etc/grafana/grafana.ini                /etc/grafana/grafana.ini
