@@ -1,5 +1,5 @@
 ARCHITECTURES = amd64 i386 arm32v5 arm32v7 arm64v8
-IMAGE_TARGET = debian:stable-slim
+IMAGE_TARGET = debian:buster-slim
 MULTIARCH = multiarch/qemu-user-static:register
 QEMU_VERSION = v2.11.0
 VERSION = $(shell cat VERSION)
